@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Fundamentals - Stock Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Stock Fundamentals</h1>
+    <div class="ticker-selector">
+        <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Enter NASDAQ ticker" 
+            class="ticker-input"
+            autocomplete="off"
+        >
+        <div id="ticker-suggestions" class="ticker-suggestions"></div>
+        <button id="load-button" class="btn btn-primary">Load</button>
+    </div>
+</div>
+
+<div id="content-area">
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Loading data...</p>
+    </div>
+    
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    
+    <div id="data-container" style="display: none;">
+        <!-- Company Info Section -->
+        <section class="section">
+            <h2>Company Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Company Name</label>
+                    <span id="company-name"></span>
+                </div>
+                <div class="info-item">
+                    <label>Industry</label>
+                    <span id="industry"></span>
+                </div>
+                <div class="info-item">
+                    <label>Sector</label>
+                    <span id="sector"></span>
+                </div>
+                <div class="info-item">
+                    <label>Market Cap</label>
+                    <span id="market-cap"></span>
+                </div>
+                <div class="info-item">
+                    <label>Website</label>
+                    <span id="website"></span>
+                </div>
+                <div class="info-item">
+                    <label>Employees</label>
+                    <span id="employees"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Price Information Section -->
+        <section class="section">
+            <h2>Price Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Current Date</label>
+                    <span id="current-date"></span>
+                </div>
+                <div class="info-item">
+                    <label>Last Trading Date</label>
+                    <span id="last-trading-date"></span>
+                </div>
+                <div class="info-item highlight">
+                    <label>Last Traded Price (LTP)</label>
+                    <span id="ltp-price" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>52-Week High</label>
+                    <span id="week-52-high"></span>
+                </div>
+                <div class="info-item">
+                    <label>52-Week Low</label>
+                    <span id="week-52-low"></span>
+                </div>
+                <div class="info-item">
+                    <label>P/E Ratio</label>
+                    <span id="pe-ratio"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Earnings Section -->
+        <section class="section">
+            <h2>Earnings Analysis</h2>
+            <div id="earnings-container"></div>
+        </section>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedTicker = sessionStorage.getItem('selected_ticker');
+        if (selectedTicker) {
+            document.getElementById('ticker-input').value = selectedTicker;
+            loadFundamentals();
+        }
+    });
+
+    document.getElementById('load-button').addEventListener('click', loadFundamentals);
+    
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadFundamentals();
+        }
+    });
+
+    function loadFundamentals() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        
+        if (!ticker) {
+            showError('Please enter a ticker symbol');
+            return;
+        }
+
+        showLoading(true);
+        
+        fetch(`/api/stock/${ticker}/fundamentals`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayFundamentals(data);
+                showLoading(false);
+                document.getElementById('data-container').style.display = 'block';
+            })
+            .catch(error => {
+                showError('Error loading fundamentals: ' + error.message);
+                showLoading(false);
+            });
+    }
+
+    function displayFundamentals(data) {
+        // Company Info
+        document.getElementById('company-name').textContent = data.company_name || 'N/A';
+        document.getElementById('industry').textContent = data.industry || 'N/A';
+        document.getElementById('sector').textContent = data.sector || 'N/A';
+        document.getElementById('market-cap').textContent = formatNumber(data.market_cap) || 'N/A';
+        document.getElementById('website').innerHTML = data.website ? 
+            `<a href="${data.website}" target="_blank">${data.website}</a>` : 'N/A';
+        document.getElementById('employees').textContent = formatNumber(data.employees) || 'N/A';
+
+        // Price Info
+        document.getElementById('current-date').textContent = data.current_date;
+        document.getElementById('last-trading-date').textContent = data.last_trading_date || 'N/A';
+        document.getElementById('ltp-price').textContent = '$' + (data.ltp_price?.toFixed(2) || 'N/A');
+        document.getElementById('week-52-high').textContent = '$' + (data.fifty_two_week_high?.toFixed(2) || 'N/A');
+        document.getElementById('week-52-low').textContent = '$' + (data.fifty_two_week_low?.toFixed(2) || 'N/A');
+        document.getElementById('pe-ratio').textContent = (data.pe_ratio?.toFixed(2) || 'N/A');
+
+        // Earnings
+        displayEarnings(data.earnings_analysis);
+    }
+
+    function displayEarnings(analysis) {
+        const container = document.getElementById('earnings-container');
+        
+        if (!analysis || !analysis.earnings_history || analysis.earnings_history.length === 0) {
+            container.innerHTML = '<p>No earnings data available</p>';
+            return;
+        }
+
+        let html = '<div class="earnings-table">';
+        
+        analysis.earnings_history.forEach((earning, index) => {
+            const priceUp = earning.price_up_5pct;
+            const volumeUp = earning.volume_above_avg;
+            
+            html += `
+                <div class="earning-card">
+                    <h4>Earnings #${index + 1}</h4>
+                    <p><strong>Date:</strong> ${earning.date}</p>
+                    <p><strong>Price Change:</strong> <span class="${priceUp ? 'positive' : 'negative'}">
+                        ${earning.price_change_pct > 0 ? '+' : ''}${earning.price_change_pct}%
+                    </span></p>
+                    <p><strong>Price Up > 5%:</strong> ${priceUp ? '✓ Yes' : '✗ No'}</p>
+                    <p><strong>Volume Above Average:</strong> ${volumeUp ? '✓ Yes' : '✗ No'}</p>
+                    <p><small>Volume: ${formatNumber(earning.next_day_volume)} | Avg Weekly: ${formatNumber(earning.avg_weekly_volume)}</small></p>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function formatNumber(num) {
+        if (!num) return 'N/A';
+        if (num >= 1000000000) {
+            return '$' + (num / 1000000000).toFixed(2) + 'B';
+        }
+        if (num >= 1000000) {
+            return '$' + (num / 1000000).toFixed(2) + 'M';
+        }
+        if (num >= 1000) {
+            return '$' + (num / 1000).toFixed(2) + 'K';
+        }
+        return '$' + num.toFixed(2);
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('data-container').style.display = 'none';
+    }
+</script>
+{% endblock %}

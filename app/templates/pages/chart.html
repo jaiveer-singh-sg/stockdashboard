@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Candle Chart - Stock Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Candle Chart View</h1>
+    <div class="ticker-selector">
+        <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Enter NASDAQ ticker" 
+            class="ticker-input"
+            autocomplete="off"
+        >
+        <div id="ticker-suggestions" class="ticker-suggestions"></div>
+        <button id="load-button" class="btn btn-primary">Load</button>
+    </div>
+</div>
+
+<div id="content-area">
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Loading chart...</p>
+    </div>
+    
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    
+    <div id="data-container" style="display: none;">
+        <!-- Chart Section -->
+        <section class="section">
+            <h2>TradingView Chart</h2>
+            <div class="chart-container">
+                <iframe id="trading-view-chart" 
+                    width="100%" 
+                    height="600" 
+                    src="" 
+                    frameborder="0" 
+                    allowfullscreen=""
+                    style="border: none; border-radius: 4px;">
+                </iframe>
+            </div>
+            <p class="help-text">Interactive chart with daily candles, volume, and technical indicators (MA, MACD)</p>
+        </section>
+
+        <!-- Chart Info Section -->
+        <section class="section">
+            <h2>Chart Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Ticker</label>
+                    <span id="chart-ticker"></span>
+                </div>
+                <div class="info-item">
+                    <label>Exchange</label>
+                    <span id="chart-exchange"></span>
+                </div>
+                <div class="info-item">
+                    <label>Data Source</label>
+                    <span>TradingView</span>
+                </div>
+                <div class="info-item">
+                    <label>Indicators</label>
+                    <span>Daily Candles, Volume, MA10/20/50/200, MACD</span>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedTicker = sessionStorage.getItem('selected_ticker');
+        if (selectedTicker) {
+            document.getElementById('ticker-input').value = selectedTicker;
+            loadChart();
+        }
+    });
+
+    document.getElementById('load-button').addEventListener('click', loadChart);
+    
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadChart();
+        }
+    });
+
+    function loadChart() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        
+        if (!ticker) {
+            showError('Please enter a ticker symbol');
+            return;
+        }
+
+        showLoading(true);
+        
+        fetch(`/api/stock/${ticker}/chart-url`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayChart(data);
+                showLoading(false);
+                document.getElementById('data-container').style.display = 'block';
+            })
+            .catch(error => {
+                showError('Error loading chart: ' + error.message);
+                showLoading(false);
+            });
+    }
+
+    function displayChart(data) {
+        // Update chart iframe
+        const chartIframe = document.getElementById('trading-view-chart');
+        // Use TradingView widgetembed for interactive chart
+        chartIframe.src = `https://www.tradingview.com/widgetembed/?symbol=${data.ticker}&interval=D&hide_side_toolbar=0&allow_symbol_change=1&details=1&hotlist=1&calendar=1&studies=BBands,MACD&theme=light&style=1&timezone=exchange&show_popup_button=1&locale=en`;
+        
+        // Update info
+        document.getElementById('chart-ticker').textContent = data.ticker;
+        document.getElementById('chart-exchange').textContent = data.exchange;
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('data-container').style.display = 'none';
+    }
+</script>
+{% endblock %}

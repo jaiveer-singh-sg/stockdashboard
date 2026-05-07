@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Stock Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <h1 class="logo">📊 Stock Dashboard</h1>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('main.index') }}" class="nav-link">Home</a></li>
+                <li><a href="{{ url_for('main.fundamentals') }}" class="nav-link">Fundamentals</a></li>
+                <li><a href="{{ url_for('main.chart') }}" class="nav-link">Chart</a></li>
+                <li><a href="{{ url_for('main.highlights') }}" class="nav-link">Highlights</a></li>
+                <li><a href="{{ url_for('main.technicals') }}" class="nav-link">Technicals</a></li>
+                <li><a href="{{ url_for('main.whale_action') }}" class="nav-link">Whale Action</a></li>
+                <li><a href="{{ url_for('main.catalysts') }}" class="nav-link">Catalysts</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="container">
+            {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Stock Dashboard. Data sources: Yahoo Finance, TradingView. Updated: <span id="update-time"></span></p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

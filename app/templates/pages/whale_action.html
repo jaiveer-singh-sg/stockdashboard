@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}Whale Action - Stock Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Whale Action & Options Analysis</h1>
+    <div class="ticker-selector">
+        <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Enter NASDAQ ticker" 
+            class="ticker-input"
+            autocomplete="off"
+        >
+        <div id="ticker-suggestions" class="ticker-suggestions"></div>
+        <button id="load-button" class="btn btn-primary">Load</button>
+    </div>
+</div>
+
+<div id="content-area">
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Loading whale action data...</p>
+    </div>
+    
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    
+    <div id="data-container" style="display: none;">
+        <!-- Institutional Holdings Section -->
+        <section class="section">
+            <h2>Top Institutional Holdings</h2>
+            <div id="institutional-container"></div>
+        </section>
+
+        <!-- Insider Trading Section -->
+        <section class="section">
+            <h2>Insider Trading Activity (Past 2 Months)</h2>
+            <div id="insider-container"></div>
+        </section>
+
+        <!-- Options Data Section -->
+        <section class="section">
+            <h2>Options Summary</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Calls Available</label>
+                    <span id="calls-count">Loading...</span>
+                </div>
+                <div class="info-item">
+                    <label>Puts Available</label>
+                    <span id="puts-count">Loading...</span>
+                </div>
+                <div class="info-item">
+                    <label>Top Call Strike</label>
+                    <span id="top-call-strike">N/A</span>
+                </div>
+                <div class="info-item">
+                    <label>Top Put Strike</label>
+                    <span id="top-put-strike">N/A</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call Options -->
+        <section class="section">
+            <h2>Call Options (Top Volume)</h2>
+            <div id="calls-table"></div>
+        </section>
+
+        <!-- Put Options -->
+        <section class="section">
+            <h2>Put Options (Top Volume)</h2>
+            <div id="puts-table"></div>
+        </section>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedTicker = sessionStorage.getItem('selected_ticker');
+        if (selectedTicker) {
+            document.getElementById('ticker-input').value = selectedTicker;
+            loadWhaleAction();
+        }
+    });
+
+    document.getElementById('load-button').addEventListener('click', loadWhaleAction);
+    
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadWhaleAction();
+        }
+    });
+
+    function loadWhaleAction() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        
+        if (!ticker) {
+            showError('Please enter a ticker symbol');
+            return;
+        }
+
+        showLoading(true);
+        
+        // Fetch whale action data
+        fetch(`/api/stock/${ticker}/whale-action`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then(whaleData => {
+                // Fetch options data separately
+                return fetch(`/api/stock/${ticker}/options`)
+                    .then(response => response.json())
+                    .then(optionsData => {
+                        whaleData.options = optionsData;
+                        return whaleData;
+                    })
+                    .catch(e => {
+                        console.log('Options data not available:', e);
+                        whaleData.options = { calls: [], puts: [] };
+                        return whaleData;
+                    });
+            })
+            .then(data => {
+                displayWhaleAction(data);
+                showLoading(false);
+                document.getElementById('data-container').style.display = 'block';
+            })
+            .catch(error => {
+                showError('Error loading whale action data: ' + error.message);
+                showLoading(false);
+            });
+    }
+
+    function displayWhaleAction(data) {
+        // Institutional Holdings
+        displayInstitutional(data.institutional_holders || []);
+        
+        // Insider Transactions
+        displayInsider(data.insider_transactions || []);
+        
+        // Options
+        displayOptions(data.options_data || data.options || {});
+    }
+
+    function displayInstitutional(holders) {
+        const container = document.getElementById('institutional-container');
+        
+        if (!holders || holders.length === 0) {
+            container.innerHTML = '<p>No institutional holdings data available</p>';
+            return;
+        }
+
+        let html = '<table class="table"><thead><tr><th>Holder</th><th>Shares Held</th><th>% of Portfolio</th><th>Change</th></tr></thead><tbody>';
+        
+        holders.slice(0, 10).forEach(holder => {
+            html += `
+                <tr>
+                    <td>${holder.Holder || holder.holder || 'N/A'}</td>
+                    <td>${formatNumber(holder.Shares || holder.shares || 0)}</td>
+                    <td>${(holder['% Out'] || holder.percent_out || 0).toFixed(2)}%</td>
+                    <td>${formatNumber(holder['Change'] || holder.change || 0)}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function displayInsider(transactions) {
+        const container = document.getElementById('insider-container');
+        
+        if (!transactions || transactions.length === 0) {
+            container.innerHTML = '<p>No insider trading data available</p>';
+            return;
+        }
+
+        let html = '<table class="table"><thead><tr><th>Insider</th><th>Relation</th><th>Date</th><th>Transaction</th><th>Shares</th><th>Value</th></tr></thead><tbody>';
+        
+        transactions.slice(0, 10).forEach(trans => {
+            html += `
+                <tr>
+                    <td>${trans.Insider || trans.insider || 'N/A'}</td>
+                    <td>${trans.Relation || trans.relation || 'N/A'}</td>
+                    <td>${trans.Date || trans.date || 'N/A'}</td>
+                    <td>${trans.Transaction || trans.transaction || 'N/A'}</td>
+                    <td>${formatNumber(trans.Shares || trans.shares || 0)}</td>
+                    <td>$${(trans.Value || trans.value || 0).toLocaleString()}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function displayOptions(optionsData) {
+        const calls = optionsData.calls || [];
+        const puts = optionsData.puts || [];
+
+        // Summary
+        document.getElementById('calls-count').textContent = calls.length;
+        document.getElementById('puts-count').textContent = puts.length;
+        
+        if (calls.length > 0) {
+            document.getElementById('top-call-strike').textContent = '$' + calls[0].strike.toFixed(2);
+        }
+        if (puts.length > 0) {
+            document.getElementById('top-put-strike').textContent = '$' + puts[0].strike.toFixed(2);
+        }
+
+        // Calls Table
+        if (calls.length > 0) {
+            let callsHtml = '<table class="table"><thead><tr><th>Strike</th><th>Last Price</th><th>Bid</th><th>Ask</th><th>Volume</th><th>Open Interest</th><th>IV</th></tr></thead><tbody>';
+            
+            calls.forEach(call => {
+                callsHtml += `
+                    <tr>
+                        <td>$${call.strike.toFixed(2)}</td>
+                        <td>$${(call.lastPrice || 0).toFixed(2)}</td>
+                        <td>$${(call.bid || 0).toFixed(2)}</td>
+                        <td>$${(call.ask || 0).toFixed(2)}</td>
+                        <td>${formatNumber(call.volume || 0)}</td>
+                        <td>${formatNumber(call.openInterest || 0)}</td>
+                        <td>${((call.impliedVolatility || 0) * 100).toFixed(2)}%</td>
+                    </tr>
+                `;
+            });
+            
+            callsHtml += '</tbody></table>';
+            document.getElementById('calls-table').innerHTML = callsHtml;
+        } else {
+            document.getElementById('calls-table').innerHTML = '<p>No call options data available</p>';
+        }
+
+        // Puts Table
+        if (puts.length > 0) {
+            let putsHtml = '<table class="table"><thead><tr><th>Strike</th><th>Last Price</th><th>Bid</th><th>Ask</th><th>Volume</th><th>Open Interest</th><th>IV</th></tr></thead><tbody>';
+            
+            puts.forEach(put => {
+                putsHtml += `
+                    <tr>
+                        <td>$${put.strike.toFixed(2)}</td>
+                        <td>$${(put.lastPrice || 0).toFixed(2)}</td>
+                        <td>$${(put.bid || 0).toFixed(2)}</td>
+                        <td>$${(put.ask || 0).toFixed(2)}</td>
+                        <td>${formatNumber(put.volume || 0)}</td>
+                        <td>${formatNumber(put.openInterest || 0)}</td>
+                        <td>${((put.impliedVolatility || 0) * 100).toFixed(2)}%</td>
+                    </tr>
+                `;
+            });
+            
+            putsHtml += '</tbody></table>';
+            document.getElementById('puts-table').innerHTML = putsHtml;
+        } else {
+            document.getElementById('puts-table').innerHTML = '<p>No put options data available</p>';
+        }
+    }
+
+    function formatNumber(num) {
+        if (!num && num !== 0) return 'N/A';
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(2) + 'M';
+        }
+        if (num >= 1000) {
+            return (num / 1000).toFixed(2) + 'K';
+        }
+        return num.toFixed(2);
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('data-container').style.display = 'none';
+    }
+</script>
+{% endblock %}

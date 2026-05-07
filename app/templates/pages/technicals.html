@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Technical Analysis - Stock Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Technical Analysis</h1>
+    <div class="ticker-selector">
+        <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Enter NASDAQ ticker" 
+            class="ticker-input"
+            autocomplete="off"
+        >
+        <div id="ticker-suggestions" class="ticker-suggestions"></div>
+        <button id="load-button" class="btn btn-primary">Load</button>
+    </div>
+</div>
+
+<div id="content-area">
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Loading technical analysis...</p>
+    </div>
+    
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    
+    <div id="data-container" style="display: none;">
+        <!-- Price Position Section -->
+        <section class="section">
+            <h2>Price Position vs Moving Averages</h2>
+            <div class="info-grid">
+                <div class="info-item highlight">
+                    <label>Current Price</label>
+                    <span id="current-price-tech" class="price-highlight"></span>
+                </div>
+                <div class="info-item" id="ma10-item">
+                    <label>MA10</label>
+                    <span id="ma10-price"></span>
+                    <small id="ma10-pos"></small>
+                </div>
+                <div class="info-item" id="ma20-item">
+                    <label>MA20</label>
+                    <span id="ma20-price"></span>
+                    <small id="ma20-pos"></small>
+                </div>
+                <div class="info-item" id="ma50-item">
+                    <label>MA50</label>
+                    <span id="ma50-price"></span>
+                    <small id="ma50-pos"></small>
+                </div>
+                <div class="info-item" id="ma200-item">
+                    <label>MA200</label>
+                    <span id="ma200-price"></span>
+                    <small id="ma200-pos"></small>
+                </div>
+            </div>
+        </section>
+
+        <!-- Resistance Levels Section -->
+        <section class="section">
+            <h2>Resistance Levels</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>R1 (Pivot)</label>
+                    <span id="r1-level" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>20-Day High</label>
+                    <span id="r20d-level" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>52-Week High</label>
+                    <span id="r52w-level" class="price-highlight"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Support Levels Section -->
+        <section class="section">
+            <h2>Support Levels</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>S1 (Pivot)</label>
+                    <span id="s1-level" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>20-Day Low</label>
+                    <span id="s20d-level" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>52-Week Low</label>
+                    <span id="s52w-level" class="price-highlight"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary Section -->
+        <section class="section">
+            <h2>Technical Summary</h2>
+            <div id="summary-container"></div>
+        </section>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedTicker = sessionStorage.getItem('selected_ticker');
+        if (selectedTicker) {
+            document.getElementById('ticker-input').value = selectedTicker;
+            loadTechnicals();
+        }
+    });
+
+    document.getElementById('load-button').addEventListener('click', loadTechnicals);
+    
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadTechnicals();
+        }
+    });
+
+    function loadTechnicals() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        
+        if (!ticker) {
+            showError('Please enter a ticker symbol');
+            return;
+        }
+
+        showLoading(true);
+        
+        fetch(`/api/stock/${ticker}/technicals`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayTechnicals(data);
+                showLoading(false);
+                document.getElementById('data-container').style.display = 'block';
+            })
+            .catch(error => {
+                showError('Error loading technicals: ' + error.message);
+                showLoading(false);
+            });
+    }
+
+    function displayTechnicals(data) {
+        const price = data.current_price;
+        const mas = data.moving_averages;
+        const pvsMas = data.price_vs_mas;
+        
+        // Current Price
+        document.getElementById('current-price-tech').textContent = '$' + price.toFixed(2);
+
+        // Moving Averages
+        if (mas.ma10) {
+            document.getElementById('ma10-price').textContent = '$' + mas.ma10.toFixed(2);
+            document.getElementById('ma10-pos').textContent = 
+                pvsMas.vs_ma10 === 'above' ? '📈 Above' : '📉 Below';
+            updateItemStyle('ma10-item', pvsMas.vs_ma10 === 'above');
+        } else {
+            document.getElementById('ma10-item').style.display = 'none';
+        }
+
+        if (mas.ma20) {
+            document.getElementById('ma20-price').textContent = '$' + mas.ma20.toFixed(2);
+            document.getElementById('ma20-pos').textContent = 
+                pvsMas.vs_ma20 === 'above' ? '📈 Above' : '📉 Below';
+            updateItemStyle('ma20-item', pvsMas.vs_ma20 === 'above');
+        } else {
+            document.getElementById('ma20-item').style.display = 'none';
+        }
+
+        if (mas.ma50) {
+            document.getElementById('ma50-price').textContent = '$' + mas.ma50.toFixed(2);
+            document.getElementById('ma50-pos').textContent = 
+                pvsMas.vs_ma50 === 'above' ? '📈 Above' : '📉 Below';
+            updateItemStyle('ma50-item', pvsMas.vs_ma50 === 'above');
+        } else {
+            document.getElementById('ma50-item').style.display = 'none';
+        }
+
+        if (mas.ma200) {
+            document.getElementById('ma200-price').textContent = '$' + mas.ma200.toFixed(2);
+            document.getElementById('ma200-pos').textContent = 
+                pvsMas.vs_ma200 === 'above' ? '📈 Above' : '📉 Below';
+            updateItemStyle('ma200-item', pvsMas.vs_ma200 === 'above');
+        } else {
+            document.getElementById('ma200-item').style.display = 'none';
+        }
+
+        // Resistance Levels
+        document.getElementById('r1-level').textContent = '$' + data.resistance_levels.r1_pivot.toFixed(2);
+        document.getElementById('r20d-level').textContent = '$' + data.resistance_levels['20d_high'].toFixed(2);
+        document.getElementById('r52w-level').textContent = '$' + data.resistance_levels['52w_high'].toFixed(2);
+
+        // Support Levels
+        document.getElementById('s1-level').textContent = '$' + data.support_levels.s1_pivot.toFixed(2);
+        document.getElementById('s20d-level').textContent = '$' + data.support_levels['20d_low'].toFixed(2);
+        document.getElementById('s52w-level').textContent = '$' + data.support_levels['52w_low'].toFixed(2);
+
+        // Summary
+        const maAboveCount = Object.values(pvsMas).filter(v => v === 'above').length;
+        const totalMAs = Object.values(pvsMas).length;
+        const trend = maAboveCount >= 3 ? 'Strong Uptrend' : 
+                     maAboveCount === 2 ? 'Moderate Uptrend' :
+                     maAboveCount === 1 ? 'Weak Uptrend' : 'Downtrend';
+        
+        const summaryHTML = `
+            <div class="info-item highlight" style="grid-column: 1 / -1;">
+                <label>Technical Trend Assessment</label>
+                <span>${trend}</span>
+                <small>${maAboveCount} out of ${totalMAs} moving averages are above the current price</small>
+            </div>
+        `;
+        document.getElementById('summary-container').innerHTML = summaryHTML;
+    }
+
+    function updateItemStyle(elementId, isAbove) {
+        const element = document.getElementById(elementId);
+        if (isAbove) {
+            element.style.borderLeftColor = '#16a34a';
+            element.style.backgroundColor = 'rgba(22, 163, 74, 0.05)';
+        } else {
+            element.style.borderLeftColor = '#dc2626';
+            element.style.backgroundColor = 'rgba(220, 38, 38, 0.05)';
+        }
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('data-container').style.display = 'none';
+    }
+</script>
+{% endblock %}

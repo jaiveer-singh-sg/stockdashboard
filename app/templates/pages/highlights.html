@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Chart Highlights - Stock Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Chart Highlights</h1>
+    <div class="ticker-selector">
+        <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Enter NASDAQ ticker" 
+            class="ticker-input"
+            autocomplete="off"
+        >
+        <div id="ticker-suggestions" class="ticker-suggestions"></div>
+        <button id="load-button" class="btn btn-primary">Load</button>
+    </div>
+</div>
+
+<div id="content-area">
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Analyzing chart...</p>
+    </div>
+    
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    
+    <div id="data-container" style="display: none;">
+        <!-- Price Trend Section -->
+        <section class="section">
+            <h2>Price Trend Analysis</h2>
+            <div id="trend-container"></div>
+        </section>
+
+        <!-- Technical Indicators Section -->
+        <section class="section">
+            <h2>Technical Indicators</h2>
+            <div id="indicators-container"></div>
+        </section>
+
+        <!-- Support & Resistance Section -->
+        <section class="section">
+            <h2>Support & Resistance Levels</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Recent Resistance</label>
+                    <span id="resistance-level" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>Recent Support</label>
+                    <span id="support-level" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>Current Price</label>
+                    <span id="current-price" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>Distance to Resistance</label>
+                    <span id="dist-resistance"></span>
+                </div>
+                <div class="info-item">
+                    <label>Distance to Support</label>
+                    <span id="dist-support"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Last 3 Closes Section -->
+        <section class="section">
+            <h2>Last 3 Trading Days</h2>
+            <div id="closes-container"></div>
+        </section>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedTicker = sessionStorage.getItem('selected_ticker');
+        if (selectedTicker) {
+            document.getElementById('ticker-input').value = selectedTicker;
+            loadHighlights();
+        }
+    });
+
+    document.getElementById('load-button').addEventListener('click', loadHighlights);
+    
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadHighlights();
+        }
+    });
+
+    function loadHighlights() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        
+        if (!ticker) {
+            showError('Please enter a ticker symbol');
+            return;
+        }
+
+        showLoading(true);
+        
+        fetch(`/api/stock/${ticker}/chart-highlights`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayHighlights(data);
+                showLoading(false);
+                document.getElementById('data-container').style.display = 'block';
+            })
+            .catch(error => {
+                showError('Error loading highlights: ' + error.message);
+                showLoading(false);
+            });
+    }
+
+    function displayHighlights(data) {
+        // Trend Analysis
+        const trendHTML = `
+            <div class="info-grid">
+                <div class="info-item ${data.three_days_increasing ? 'highlight' : ''}">
+                    <label>3 Consecutive Days Increasing</label>
+                    <span>${data.three_days_increasing ? '✓ YES - Uptrend' : '✗ NO'}</span>
+                </div>
+                <div class="info-item ${data.macd_rising ? 'highlight' : ''}">
+                    <label>MACD Rising</label>
+                    <span>${data.macd_rising ? '✓ YES - Bullish' : '✗ NO'}</span>
+                </div>
+                <div class="info-item ${data.gap_event ? 'highlight' : ''}">
+                    <label>Gap Event</label>
+                    <span>${data.gap_event ? 
+                        (data.gap_event.type === 'gap_up' ? '📈 Gap Up +' : '📉 Gap Down -') + 
+                        data.gap_event.percentage + '%' : 
+                        'No significant gap'}</span>
+                </div>
+            </div>
+        `;
+        document.getElementById('trend-container').innerHTML = trendHTML;
+
+        // Indicators
+        const indicatorsHTML = `
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Status</label>
+                    <span>${data.three_days_increasing && data.macd_rising ? 
+                        '🟢 Strong Bullish' : 
+                        data.three_days_increasing ? '🟡 Moderately Bullish' : 
+                        data.macd_rising ? '🟡 Weak Bullish' : 
+                        '🔴 Bearish'}</span>
+                </div>
+                <div class="info-item">
+                    <label>Trend Strength</label>
+                    <span>${data.three_days_increasing && data.macd_rising ? 'Very Strong' : 
+                        data.three_days_increasing || data.macd_rising ? 'Moderate' : 'Weak'}</span>
+                </div>
+            </div>
+        `;
+        document.getElementById('indicators-container').innerHTML = indicatorsHTML;
+
+        // Support & Resistance
+        document.getElementById('resistance-level').textContent = '$' + data.recent_resistance.toFixed(2);
+        document.getElementById('support-level').textContent = '$' + data.recent_support.toFixed(2);
+        document.getElementById('current-price').textContent = '$' + data.current_price.toFixed(2);
+        
+        const distRes = ((data.recent_resistance - data.current_price) / data.current_price * 100).toFixed(2);
+        const distSup = ((data.current_price - data.recent_support) / data.current_price * 100).toFixed(2);
+        
+        document.getElementById('dist-resistance').textContent = '+' + distRes + '%';
+        document.getElementById('dist-support').textContent = '+' + distSup + '%';
+
+        // Last 3 closes
+        const closesHTML = `
+            <div class="info-grid">
+                ${data.last_3_closes.map((close, index) => `
+                    <div class="info-item">
+                        <label>Day ${3 - index}</label>
+                        <span class="price-highlight">$${close.toFixed(2)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        document.getElementById('closes-container').innerHTML = closesHTML;
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('data-container').style.display = 'none';
+    }
+</script>
+{% endblock %}

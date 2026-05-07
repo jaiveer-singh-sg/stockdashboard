@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Dashboard - Home{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <h1>Welcome to Stock Dashboard</h1>
+    <p>Comprehensive analysis of NASDAQ stocks using real-time data from TradingView and Yahoo Finance</p>
+    
+    <div class="ticker-search">
+        <div class="search-container">
+            <input 
+                type="text" 
+                id="ticker-input" 
+                placeholder="Enter NASDAQ ticker (e.g., AAPL, MSFT, NVDA)" 
+                class="ticker-input"
+                autocomplete="off"
+            >
+            <div id="ticker-suggestions" class="ticker-suggestions"></div>
+            <button id="search-button" class="btn btn-primary">Analyze</button>
+        </div>
+        <p class="help-text">Search for any NASDAQ ticker to get started</p>
+    </div>
+</div>
+
+<div class="features-grid">
+    <div class="feature-card">
+        <h3>📈 Stock Fundamentals</h3>
+        <p>Company info, earnings dates, market cap, 52-week highs/lows, and price validation</p>
+        <a href="{{ url_for('main.fundamentals') }}" class="btn btn-secondary">View</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>📊 Candle Chart</h3>
+        <p>Interactive TradingView charts with daily candles, volume, and technical indicators</p>
+        <a href="{{ url_for('main.chart') }}" class="btn btn-secondary">View</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>🎯 Chart Highlights</h3>
+        <p>Key price patterns, MACD trends, gap analysis, and support/resistance levels</p>
+        <a href="{{ url_for('main.highlights') }}" class="btn btn-secondary">View</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>📐 Technical Analysis</h3>
+        <p>Moving averages, pivot points, support and resistance levels</p>
+        <a href="{{ url_for('main.technicals') }}" class="btn btn-secondary">View</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>🐳 Whale Action</h3>
+        <p>Institutional holdings, insider trading, and options data</p>
+        <a href="{{ url_for('main.whale_action') }}" class="btn btn-secondary">View</a>
+    </div>
+    
+    <div class="feature-card">
+        <h3>🚀 Catalysts</h3>
+        <p>Upcoming events, earnings announcements, and market sentiment analysis</p>
+        <a href="{{ url_for('main.catalysts') }}" class="btn btn-secondary">View</a>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Handle ticker search
+    document.getElementById('search-button').addEventListener('click', function() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        if (ticker) {
+            // Store ticker in session storage and redirect to fundamentals
+            sessionStorage.setItem('selected_ticker', ticker);
+            window.location.href = "{{ url_for('main.fundamentals') }}";
+        }
+    });
+    
+    // Handle Enter key
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            document.getElementById('search-button').click();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Catalyst Events - Stock Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Catalyst Events & Market Sentiment</h1>
+    <div class="ticker-selector">
+        <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Enter NASDAQ ticker" 
+            class="ticker-input"
+            autocomplete="off"
+        >
+        <div id="ticker-suggestions" class="ticker-suggestions"></div>
+        <button id="load-button" class="btn btn-primary">Load</button>
+    </div>
+</div>
+
+<div id="content-area">
+    <div id="loading" class="loading-spinner" style="display: none;">
+        <p>Loading catalyst events...</p>
+    </div>
+    
+    <div id="error-message" class="alert alert-error" style="display: none;"></div>
+    
+    <div id="data-container" style="display: none;">
+        <!-- Market Sentiment Section -->
+        <section class="section">
+            <h2>Market Sentiment</h2>
+            <div class="info-grid">
+                <div class="info-item highlight" style="grid-column: 1 / -1;">
+                    <label>Overall Sentiment</label>
+                    <span id="sentiment-badge" class="price-highlight"></span>
+                </div>
+                <div class="info-item">
+                    <label>Industry</label>
+                    <span id="industry-info"></span>
+                </div>
+                <div class="info-item">
+                    <label>Sector</label>
+                    <span id="sector-info"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Company Events Section -->
+        <section class="section">
+            <h2>Upcoming Company Events (Next 2 Months)</h2>
+            <div id="events-container"></div>
+        </section>
+
+        <!-- Industry Catalysts Section -->
+        <section class="section">
+            <h2>Industry Catalysts & Trends</h2>
+            <div id="industry-catalysts"></div>
+        </section>
+
+        <!-- Risk Factors Section -->
+        <section class="section">
+            <h2>Key Risk Factors</h2>
+            <div id="risk-factors"></div>
+        </section>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectedTicker = sessionStorage.getItem('selected_ticker');
+        if (selectedTicker) {
+            document.getElementById('ticker-input').value = selectedTicker;
+            loadCatalysts();
+        }
+    });
+
+    document.getElementById('load-button').addEventListener('click', loadCatalysts);
+    
+    document.getElementById('ticker-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            loadCatalysts();
+        }
+    });
+
+    function loadCatalysts() {
+        const ticker = document.getElementById('ticker-input').value.trim().toUpperCase();
+        
+        if (!ticker) {
+            showError('Please enter a ticker symbol');
+            return;
+        }
+
+        showLoading(true);
+        
+        fetch(`/api/stock/${ticker}/catalysts`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayCatalysts(data);
+                showLoading(false);
+                document.getElementById('data-container').style.display = 'block';
+            })
+            .catch(error => {
+                showError('Error loading catalysts: ' + error.message);
+                showLoading(false);
+            });
+    }
+
+    function displayCatalysts(data) {
+        // Market Sentiment
+        const sentimentEmoji = data.market_sentiment === 'BULLISH' ? '🟢' : 
+                              data.market_sentiment === 'BEARISH' ? '🔴' : '🟡';
+        const sentimentColor = data.market_sentiment === 'BULLISH' ? '#16a34a' : 
+                              data.market_sentiment === 'BEARISH' ? '#dc2626' : '#f59e0b';
+        
+        const sentimentBadge = document.getElementById('sentiment-badge');
+        sentimentBadge.textContent = sentimentEmoji + ' ' + data.market_sentiment;
+        sentimentBadge.style.color = sentimentColor;
+
+        document.getElementById('industry-info').textContent = data.industry || 'N/A';
+        document.getElementById('sector-info').textContent = data.sector || 'N/A';
+
+        // Events
+        displayEvents(data.catalyst_events || []);
+
+        // Industry Catalysts (sample data)
+        displayIndustryCatalysts();
+
+        // Risk Factors (sample data)
+        displayRiskFactors();
+    }
+
+    function displayEvents(events) {
+        const container = document.getElementById('events-container');
+        
+        if (!events || events.length === 0) {
+            container.innerHTML = '<p>No upcoming events scheduled</p>';
+            return;
+        }
+
+        let html = '<div class="earnings-table">';
+        
+        events.forEach(event => {
+            const impactColor = event.impact === 'High' ? '#dc2626' : 
+                               event.impact === 'Medium' ? '#f59e0b' : '#0891b2';
+            
+            html += `
+                <div class="earning-card" style="border-left-color: ${impactColor}">
+                    <h4>${event.event}</h4>
+                    <p><strong>Date:</strong> ${event.date}</p>
+                    <p><strong>Type:</strong> ${event.type}</p>
+                    <p><strong>Impact:</strong> <span style="color: ${impactColor}; font-weight: 700;">${event.impact}</span></p>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function displayIndustryCatalysts() {
+        const container = document.getElementById('industry-catalysts');
+        
+        // Sample industry catalysts
+        const catalysts = [
+            { event: 'AI/ML adoption acceleration', impact: 'Positive', timeline: '2024-2025' },
+            { event: 'Cloud infrastructure growth', impact: 'Positive', timeline: 'Ongoing' },
+            { event: 'Regulatory scrutiny', impact: 'Negative', timeline: 'Ongoing' },
+            { event: 'Supply chain normalization', impact: 'Positive', timeline: '2024' },
+        ];
+
+        let html = '<div class="earnings-table">';
+        
+        catalysts.forEach(cat => {
+            const impactColor = cat.impact === 'Positive' ? '#16a34a' : '#dc2626';
+            html += `
+                <div class="earning-card" style="border-left-color: ${impactColor}">
+                    <h4>${cat.event}</h4>
+                    <p><strong>Impact:</strong> <span style="color: ${impactColor}; font-weight: 700;">${cat.impact}</span></p>
+                    <p><strong>Timeline:</strong> ${cat.timeline}</p>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function displayRiskFactors() {
+        const container = document.getElementById('risk-factors');
+        
+        // Sample risk factors
+        const risks = [
+            { factor: 'Market volatility', severity: 'Medium' },
+            { factor: 'Interest rate changes', severity: 'High' },
+            { factor: 'Competitive pressure', severity: 'Medium' },
+            { factor: 'Technology disruption', severity: 'Low' },
+        ];
+
+        let html = '<div class="earnings-table">';
+        
+        risks.forEach(risk => {
+            const severityColor = risk.severity === 'High' ? '#dc2626' : 
+                                 risk.severity === 'Medium' ? '#f59e0b' : '#0891b2';
+            html += `
+                <div class="earning-card" style="border-left-color: ${severityColor}">
+                    <h4>${risk.factor}</h4>
+                    <p><strong>Severity:</strong> <span style="color: ${severityColor}; font-weight: 700;">${risk.severity}</span></p>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function showLoading(show) {
+        document.getElementById('loading').style.display = show ? 'block' : 'none';
+        document.getElementById('error-message').style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorDiv = document.getElementById('error-message');
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+        document.getElementById('data-container').style.display = 'none';
+    }
+</script>
+{% endblock %}
