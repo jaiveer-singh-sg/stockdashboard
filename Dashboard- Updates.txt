@@ -1,0 +1,28 @@
+Perform following updates in this web app 
+
+Stock Fundamentals page - Company Information section - Remove $ sign from Employee count as count is not amount
+
+For Price Information section, add EPS, beta value and dates for 52W High and Low price
+
+For Earning Analysis Section : Show next earning date and summary of quarterly earnings from this page. https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FY&revenues-period=FY 
+
+Add a new section for peers companies showing Marketcap, Stock LTP, 52W High & Low , PE, EPS and last week average trade volume
+
+https://www.tradingview.com/symbols/{exchange}-{ticker}/financials-earnings/?earnings-period=FQ&revenues-period=FY
+
+https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FQ&revenues-period=FQ
+
+
+==== Debug
+notepad "D:\Sandbox\AI Code\StocksDashboard\app.log"
+
+To any new viewers wondering where to access the debugger and use the PIN, it is accessible in the flask application at /console
+
+A window requesting the PIN will pop up:
+
+Press CTRL+C to quit [python run.py ]
+ * Restarting with watchdog (windowsapi)
+ * Debugger is active!
+ * Debugger PIN: 762-140-652
+
+ werkzeug:  * Debugger PIN: 762-140-652

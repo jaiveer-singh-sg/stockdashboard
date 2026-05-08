@@ -1,6 +1,7 @@
 """Flask routes for the Stock Dashboard application."""
 from flask import Blueprint, render_template, jsonify, request, current_app
 from app.data_sources.yahoo_finance import YahooFinanceDataSource
+from app.data_sources.tradingview_scraper import TradingViewScraper
 from app.data_sources.nasdaq_tickers import NasdaqTickerManager
 from app.services.analysis_service import AnalysisService
 from datetime import datetime
@@ -16,6 +17,7 @@ api_bp = Blueprint('api', __name__)
 yahoo_finance = YahooFinanceDataSource()
 nasdaq_manager = NasdaqTickerManager()
 analysis_service = AnalysisService(yahoo_finance)
+tradingview_scraper = TradingViewScraper(headless=True)
 
 
 @main_bp.route('/')
@@ -104,24 +106,20 @@ def get_fundamentals(ticker):
     try:
         ticker = ticker.upper()
         
-        # Validate ticker
         if not nasdaq_manager.validate_ticker(ticker):
             return jsonify({'error': 'Invalid NASDAQ ticker'}), 400
         
-        # Get stock info
         stock_info = yahoo_finance.get_stock_info(ticker)
         if not stock_info:
             return jsonify({'error': 'Unable to fetch stock information'}), 500
         
-        # Get last trading date and LTP
         last_trading_date = yahoo_finance.get_last_trading_date(ticker)
         ltp_price = yahoo_finance.get_ltp_price(ticker)
-        
-        # Get earnings data
         earnings_dates = yahoo_finance.get_earnings_dates(ticker)
-        
-        # Analyze earnings impact
         earnings_analysis = analysis_service.analyze_earnings_impact(ticker)
+        week_52_dates = yahoo_finance.get_52_week_high_low_dates(ticker)
+        
+        tradingview_earnings = tradingview_scraper.get_earnings_data(ticker)
         
         fundamentals = {
             **stock_info,
@@ -130,11 +128,31 @@ def get_fundamentals(ticker):
             'ltp_price': ltp_price,
             'earnings_dates': earnings_dates,
             'earnings_analysis': earnings_analysis,
+            'week_52_high_date': week_52_dates.get('high_date'),
+            'week_52_low_date': week_52_dates.get('low_date'),
+            'tradingview_earnings': tradingview_earnings,
         }
         
         return jsonify(fundamentals)
     except Exception as e:
         logger.error(f"Error fetching fundamentals for {ticker}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/stock/<ticker>/peers', methods=['GET'])
+def get_peers(ticker):
+    """Get peer companies data."""
+    try:
+        ticker = ticker.upper()
+        
+        if not nasdaq_manager.validate_ticker(ticker):
+            return jsonify({'error': 'Invalid NASDAQ ticker'}), 400
+        
+        peers_data = yahoo_finance.get_peers(ticker)
+        
+        return jsonify({'peers': peers_data})
+    except Exception as e:
+        logger.error(f"Error getting peers for {ticker}: {e}")
         return jsonify({'error': str(e)}), 500
 
 

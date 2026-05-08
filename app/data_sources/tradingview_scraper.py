@@ -254,7 +254,6 @@ class TradingViewScraper:
                         support_levels: []
                     };
                     
-                    // Try to find resistance and support sections
                     const rows = document.querySelectorAll('[data-test="level-row"]');
                     rows.forEach(row => {
                         const label = row.querySelector('[data-test="label"]')?.textContent;
@@ -278,3 +277,78 @@ class TradingViewScraper:
         except Exception as e:
             logger.error(f"Error extracting support/resistance: {e}")
             return {'resistance_levels': [], 'support_levels': []}
+    
+    def get_earnings_data(self, ticker: str, exchange: str = 'NASDAQ') -> Optional[Dict]:
+        """Scrape earnings data from TradingView financials-earnings page."""
+        try:
+            self.start_browser()
+            
+            url = f"https://www.tradingview.com/symbols/{exchange}-{ticker}/financials-earnings/?earnings-period=FQ&revenues-period=FQ"
+            page = self.browser.new_page()
+            
+            try:
+                page.goto(url, wait_until='networkidle', timeout=60000)
+                page.wait_for_timeout(5000)
+                
+                earnings_data = self._extract_earnings_data(page)
+                
+                return earnings_data
+            finally:
+                page.close()
+                self.stop_browser()
+        except Exception as e:
+            logger.error(f"Error scraping earnings for {ticker}: {e}")
+            self.stop_browser()
+            return None
+    
+    def _extract_earnings_data(self, page: Page) -> Dict:
+        """Extract earnings data from TradingView page."""
+        try:
+            data = page.evaluate("""
+                () => {
+                    const result = {
+                        next_earnings_date: null,
+                        quarterly_data: [],
+                        revenue_data: []
+                    };
+                    
+                    const pageText = document.body.innerText;
+                    
+                    const nextMatch = pageText.match(/Next Earnings[^\\n]{0,100}/i);
+                    if (nextMatch) {
+                        const dateMatch = nextMatch[0].match(/\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{2,4}|\\w{3,9}\\s+\\d{1,2},?\\s+\\d{4}/);
+                        if (dateMatch) {
+                            result.next_earnings_date = dateMatch[0];
+                        }
+                    }
+                    
+                    const tables = document.querySelectorAll('table');
+                    tables.forEach(table => {
+                        const headerRow = table.querySelector('thead tr');
+                        if (!headerRow) return;
+                        
+                        const headers = Array.from(headerRow.querySelectorAll('th')).map(h => h.textContent?.trim() || '');
+                        
+                        if (headers.length > 2 && (headers[0].toLowerCase().includes('quarter') || headers[0].toLowerCase().includes('date'))) {
+                            const rows = table.querySelectorAll('tbody tr');
+                            rows.forEach(row => {
+                                const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent?.trim() || '');
+                                if (cells.length > 0 && cells[0] && !cells[0].toLowerCase().includes('ttm') && !cells[0].toLowerCase().includes('estimate')) {
+                                    const rowObj = {};
+                                    headers.forEach((h, i) => {
+                                        rowObj[h] = cells[i] || '';
+                                    });
+                                    result.quarterly_data.push(rowObj);
+                                }
+                            });
+                        }
+                    });
+                    
+                    return result;
+                }
+            """)
+            
+            return data
+        except Exception as e:
+            logger.error(f"Error extracting earnings data: {e}")
+            return {'next_earnings_date': None, 'quarterly_data': [], 'revenue_data': []}

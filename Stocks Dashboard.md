@@ -11,6 +11,8 @@ When data is not avaialble via Tradingview, use Yahoo Finance APIs, web screens 
 	Technical Data - 	https://www.tradingview.com/chart/Eba80tgA/?symbol=NASDAQ%3AAMZN
 	Financial Data - https://www.tradingview.com/chart/Eba80tgA/?symbol=NASDAQ%3AAMZN
 	Forecast/ Target  - https://www.tradingview.com/chart/Eba80tgA/?symbol=NASDAQ%3AAMZN
+	Earnings https://www.tradingview.com/symbols/NASDAQ-NVDA/financials-earnings/?earnings-period=FY&revenues-period=FY
+	
 	• News:
 	•	 https://www.tradingview.com/symbols/NASDAQ-AMZN/news/
 		Stock News - https://www.tradingview.com/chart/Eba80tgA/?symbol=NASDAQ%3AAMZN

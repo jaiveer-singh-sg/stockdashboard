@@ -76,29 +76,48 @@
                 <div class="info-item">
                     <label>52-Week High</label>
                     <span id="week-52-high"></span>
+                    <small id="week-52-high-date"></small>
                 </div>
                 <div class="info-item">
                     <label>52-Week Low</label>
                     <span id="week-52-low"></span>
+                    <small id="week-52-low-date"></small>
                 </div>
                 <div class="info-item">
                     <label>P/E Ratio</label>
                     <span id="pe-ratio"></span>
                 </div>
+                <div class="info-item">
+                    <label>EPS (TTM)</label>
+                    <span id="eps"></span>
+                </div>
+                <div class="info-item">
+                    <label>Beta</label>
+                    <span id="beta"></span>
+                </div>
             </div>
         </section>
 
-        <!-- Earnings Section -->
+        <!-- Earnings Analysis Section -->
         <section class="section">
             <h2>Earnings Analysis</h2>
-            <div id="earnings-container"></div>
+            <div id="earnings-analysis-container"></div>
+        </section>
+
+        <!-- Peers Section -->
+        <section class="section">
+            <h2>Peer Companies</h2>
+            <div id="peers-container">
+                <p>Loading peers...</p>
+            </div>
         </section>
     </div>
 </div>
 
 <script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
 <script>
-    // Initialize page
+    let currentTicker = '';
+
     document.addEventListener('DOMContentLoaded', function() {
         const selectedTicker = sessionStorage.getItem('selected_ticker');
         if (selectedTicker) {
@@ -123,82 +142,160 @@
             return;
         }
 
+        currentTicker = ticker;
         showLoading(true);
         
-        fetch(`/api/stock/${ticker}/fundamentals`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(response.statusText);
-                }
-                return response.json();
-            })
-            .then(data => {
-                displayFundamentals(data);
-                showLoading(false);
-                document.getElementById('data-container').style.display = 'block';
-            })
-            .catch(error => {
-                showError('Error loading fundamentals: ' + error.message);
-                showLoading(false);
-            });
+        Promise.all([
+            fetch(`/api/stock/${ticker}/fundamentals`),
+            fetch(`/api/stock/${ticker}/peers`)
+        ])
+        .then(responses => Promise.all(responses.map(r => {
+            if (!r.ok) throw new Error(r.statusText);
+            return r.json();
+        })))
+        .then(([fundamentalsData, peersData]) => {
+            displayFundamentals(fundamentalsData);
+            displayPeers(peersData.peers || []);
+            showLoading(false);
+            document.getElementById('data-container').style.display = 'block';
+        })
+        .catch(error => {
+            showError('Error loading fundamentals: ' + error.message);
+            showLoading(false);
+        });
     }
 
     function displayFundamentals(data) {
-        // Company Info
         document.getElementById('company-name').textContent = data.company_name || 'N/A';
         document.getElementById('industry').textContent = data.industry || 'N/A';
         document.getElementById('sector').textContent = data.sector || 'N/A';
-        document.getElementById('market-cap').textContent = formatNumber(data.market_cap) || 'N/A';
+        document.getElementById('market-cap').textContent = formatCurrency(data.market_cap) || 'N/A';
         document.getElementById('website').innerHTML = data.website ? 
             `<a href="${data.website}" target="_blank">${data.website}</a>` : 'N/A';
         document.getElementById('employees').textContent = formatNumber(data.employees) || 'N/A';
 
-        // Price Info
         document.getElementById('current-date').textContent = data.current_date;
         document.getElementById('last-trading-date').textContent = data.last_trading_date || 'N/A';
         document.getElementById('ltp-price').textContent = '$' + (data.ltp_price?.toFixed(2) || 'N/A');
+        
+        const highDate = data.week_52_high_date ? ` (${data.week_52_high_date})` : '';
         document.getElementById('week-52-high').textContent = '$' + (data.fifty_two_week_high?.toFixed(2) || 'N/A');
+        document.getElementById('week-52-high-date').textContent = highDate;
+        
+        const lowDate = data.week_52_low_date ? ` (${data.week_52_low_date})` : '';
         document.getElementById('week-52-low').textContent = '$' + (data.fifty_two_week_low?.toFixed(2) || 'N/A');
+        document.getElementById('week-52-low-date').textContent = lowDate;
+        
         document.getElementById('pe-ratio').textContent = (data.pe_ratio?.toFixed(2) || 'N/A');
+        document.getElementById('eps').textContent = (data.eps?.toFixed(2) || 'N/A');
+        document.getElementById('beta').textContent = (data.beta?.toFixed(2) || 'N/A');
 
-        // Earnings
-        displayEarnings(data.earnings_analysis);
+        displayEarnings(data);
     }
 
-    function displayEarnings(analysis) {
-        const container = document.getElementById('earnings-container');
-        
-        if (!analysis || !analysis.earnings_history || analysis.earnings_history.length === 0) {
-            container.innerHTML = '<p>No earnings data available</p>';
-            return;
-        }
+    function displayEarnings(data) {
+        const container = document.getElementById('earnings-analysis-container');
+        let html = '';
 
-        let html = '<div class="earnings-table">';
+        const tvEarnings = data.tradingview_earnings || {};
+        const nextEarningsDate = tvEarnings.next_earnings_date || data.earnings_dates?.[0]?.date;
         
-        analysis.earnings_history.forEach((earning, index) => {
-            const priceUp = earning.price_up_5pct;
-            const volumeUp = earning.volume_above_avg;
-            
+        if (nextEarningsDate) {
             html += `
-                <div class="earning-card">
-                    <h4>Earnings #${index + 1}</h4>
-                    <p><strong>Date:</strong> ${earning.date}</p>
-                    <p><strong>Price Change:</strong> <span class="${priceUp ? 'positive' : 'negative'}">
-                        ${earning.price_change_pct > 0 ? '+' : ''}${earning.price_change_pct}%
-                    </span></p>
-                    <p><strong>Price Up > 5%:</strong> ${priceUp ? '✓ Yes' : '✗ No'}</p>
-                    <p><strong>Volume Above Average:</strong> ${volumeUp ? '✓ Yes' : '✗ No'}</p>
-                    <p><small>Volume: ${formatNumber(earning.next_day_volume)} | Avg Weekly: ${formatNumber(earning.avg_weekly_volume)}</small></p>
+                <div class="earning-card next-earnings">
+                    <h4>Next Earnings Date</h4>
+                    <p class="earnings-date">${nextEarningsDate}</p>
                 </div>
             `;
-        });
-        
-        html += '</div>';
+        }
+
+        const quarterlyData = tvEarnings.quarterly_data || [];
+        if (quarterlyData.length > 0) {
+            const headers = Object.keys(quarterlyData[0]);
+            
+            html += `
+                <div class="quarterly-section">
+                    <h4>Quarterly Earnings & Revenue Summary</h4>
+                    <div class="table-wrapper">
+                        <table class="earnings-table">
+                            <thead>
+                                <tr>
+                                    ${headers.map(h => `<th>${h}</th>`).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${quarterlyData.map(row => `
+                                    <tr>
+                                        ${headers.map(h => `<td>${row[h] || '-'}</td>`).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (!html) {
+            html = '<div class="loading-message"><p>Fetching earnings data from TradingView...</p><div class="spinner"></div></div>';
+        }
+
         container.innerHTML = html;
     }
 
-    function formatNumber(num) {
+    function displayPeers(peers) {
+        const container = document.getElementById('peers-container');
+        
+        if (!peers || peers.length === 0) {
+            container.innerHTML = '<p>No peer data available</p>';
+            return;
+        }
+
+        let html = `
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Name</th>
+                        <th>Market Cap</th>
+                        <th>LTP</th>
+                        <th>52W High</th>
+                        <th>52W Low</th>
+                        <th>P/E</th>
+                        <th>EPS</th>
+                        <th>Beta</th>
+                        <th>Avg Volume</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        peers.forEach(peer => {
+            html += `
+                <tr>
+                    <td><strong>${peer.ticker}</strong></td>
+                    <td>${peer.name || 'N/A'}</td>
+                    <td>${formatCurrency(peer.market_cap)}</td>
+                    <td>$${(peer.current_price || 0).toFixed(2)}</td>
+                    <td>$${(peer.fifty_two_week_high || 0).toFixed(2)}</td>
+                    <td>$${(peer.fifty_two_week_low || 0).toFixed(2)}</td>
+                    <td>${(peer.pe_ratio || 0).toFixed(2)}</td>
+                    <td>${(peer.eps || 0).toFixed(2)}</td>
+                    <td>${(peer.beta || 0).toFixed(2)}</td>
+                    <td>${formatNumber(peer.avg_volume)}</td>
+                </tr>
+            `;
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function formatCurrency(num) {
         if (!num) return 'N/A';
+        if (num >= 1000000000000) {
+            return '$' + (num / 1000000000000).toFixed(2) + 'T';
+        }
         if (num >= 1000000000) {
             return '$' + (num / 1000000000).toFixed(2) + 'B';
         }
@@ -209,6 +306,20 @@
             return '$' + (num / 1000).toFixed(2) + 'K';
         }
         return '$' + num.toFixed(2);
+    }
+
+    function formatNumber(num) {
+        if (!num) return 'N/A';
+        if (num >= 1000000000) {
+            return (num / 1000000000).toFixed(2) + 'B';
+        }
+        if (num >= 1000000) {
+            return (num / 1000000).toFixed(2) + 'M';
+        }
+        if (num >= 1000) {
+            return (num / 1000).toFixed(2) + 'K';
+        }
+        return num.toFixed(0);
     }
 
     function showLoading(show) {
@@ -223,4 +334,77 @@
         document.getElementById('data-container').style.display = 'none';
     }
 </script>
+
+<style>
+    .next-earnings {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .next-earnings h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+        opacity: 0.9;
+    }
+    .earnings-date {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 0;
+    }
+    .quarterly-section {
+        margin-top: 15px;
+    }
+    .quarterly-section h4 {
+        margin-bottom: 15px;
+        color: var(--text-primary, #333);
+    }
+    .table-wrapper {
+        overflow-x: auto;
+    }
+    .earnings-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    .earnings-table th, .earnings-table td {
+        padding: 12px 10px;
+        text-align: right;
+        border-bottom: 1px solid var(--border-color, #e2e8f0);
+        white-space: nowrap;
+    }
+    .earnings-table th:first-child, .earnings-table td:first-child {
+        text-align: left;
+    }
+    .earnings-table th {
+        background: var(--bg-secondary, #f8fafc);
+        font-weight: 600;
+        color: var(--text-primary, #1e293b);
+    }
+    .earnings-table tbody tr:hover {
+        background: var(--bg-hover, #f1f5f9);
+    }
+    .loading-message {
+        text-align: center;
+        padding: 30px;
+        color: var(--text-secondary, #64748b);
+    }
+    .spinner {
+        border: 3px solid #e2e8f0;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 15px auto 0;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+</style>
 {% endblock %}

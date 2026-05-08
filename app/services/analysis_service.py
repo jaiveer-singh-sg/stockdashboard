@@ -78,62 +78,177 @@ class AnalysisService:
             return None
     
     def get_chart_highlights(self, ticker: str) -> Optional[Dict]:
-        """Get key chart highlights."""
+        """Get key chart highlights with comprehensive analysis."""
         try:
             df = self.data_source.get_historical_data(ticker, period='3mo')
             
             if df is None or df.empty:
                 return None
             
-            # Get recent data (last 3 days)
-            recent_data = df.tail(3)
+            current_price = float(df['Close'].iloc[-1])
             
-            # Check 3 consecutive days increase
+            # 1. Check 3 consecutive days increase
             three_days_increasing = False
-            if len(recent_data) >= 3:
-                closes = recent_data['Close'].values
-                three_days_increasing = (
+            last_3_days = df.tail(3)
+            if len(last_3_days) >= 3:
+                closes = last_3_days['Close'].values
+                three_days_increasing = bool(
                     closes[0] < closes[1] and 
                     closes[1] < closes[2]
                 )
             
-            # Check MACD trend
-            macd_rising = False
-            if len(df) >= 2:
-                macd_last = df['MACD'].iloc[-1]
-                macd_prev = df['MACD'].iloc[-2]
-                macd_rising = macd_last > macd_prev if pd.notna(macd_last) and pd.notna(macd_prev) else False
-            
-            # Check for gap up/down
-            gap_found = None
-            if len(df) >= 2:
-                prev_close = df['Close'].iloc[-2]
-                curr_open = df['Open'].iloc[-1]
-                gap_pct = ((curr_open - prev_close) / prev_close) * 100
+            # 2. MACD trend analysis
+            macd_analysis = {'rising': False, 'falling': False, 'crossed': False, 'strength': 'Neutral'}
+            if len(df) >= 26:
+                macd = float(df['MACD'].iloc[-1]) if pd.notna(df['MACD'].iloc[-1]) else 0
+                signal = float(df['Signal'].iloc[-1]) if pd.notna(df['Signal'].iloc[-1]) else 0
+                macd_prev = float(df['MACD'].iloc[-2]) if pd.notna(df['MACD'].iloc[-2]) else 0
+                signal_prev = float(df['Signal'].iloc[-2]) if pd.notna(df['Signal'].iloc[-2]) else 0
                 
-                if gap_pct > 2:
-                    gap_found = {'type': 'gap_up', 'percentage': round(gap_pct, 2)}
-                elif gap_pct < -2:
-                    gap_found = {'type': 'gap_down', 'percentage': round(abs(gap_pct), 2)}
+                macd_analysis['rising'] = bool(macd > macd_prev)
+                macd_analysis['falling'] = bool(macd < macd_prev)
+                
+                # Check for crossover
+                macd_analysis['crossed'] = bool((macd_prev < signal_prev and macd > signal) or \
+                                               (macd_prev > signal_prev and macd < signal))
+                
+                # Determine strength
+                if macd > signal and macd > 0:
+                    macd_analysis['strength'] = 'Strong Bullish'
+                elif macd > signal:
+                    macd_analysis['strength'] = 'Bullish'
+                elif macd < signal and macd < 0:
+                    macd_analysis['strength'] = 'Strong Bearish'
+                else:
+                    macd_analysis['strength'] = 'Bearish'
             
-            # Calculate support/resistance from recent highs/lows
-            resistance = df['Close'].tail(20).max()
-            support = df['Close'].tail(20).min()
+            # 3. Gap detection
+            gap_analysis = {'has_gap': False, 'type': None, 'percentage': 0.0, 'gap_amount': 0.0}
+            if len(df) >= 2:
+                prev_close = float(df['Close'].iloc[-2])
+                curr_open = float(df['Open'].iloc[-1])
+                gap_pct = ((curr_open - prev_close) / prev_close) * 100
+                gap_amount = curr_open - prev_close
+                
+                if abs(gap_pct) > 1:
+                    gap_analysis['has_gap'] = True
+                    gap_analysis['type'] = 'gap_up' if gap_pct > 0 else 'gap_down'
+                    gap_analysis['percentage'] = round(abs(gap_pct), 2)
+                    gap_analysis['gap_amount'] = round(gap_amount, 2)
+                    gap_analysis['prev_close'] = round(prev_close, 2)
+                    gap_analysis['curr_open'] = round(curr_open, 2)
+            
+            # 4. Support and resistance levels
+            recent_highs = df['High'].tail(20)
+            recent_lows = df['Low'].tail(20)
+            
+            resistance_levels = []
+            support_levels = []
+            
+            # Find local highs (resistance)
+            for i in range(2, len(df)-2):
+                if float(df['High'].iloc[i]) > float(df['High'].iloc[i-1]) and \
+                   float(df['High'].iloc[i]) > float(df['High'].iloc[i+1]):
+                    resistance_levels.append(float(df['High'].iloc[i]))
+            
+            # Find local lows (support)
+            for i in range(2, len(df)-2):
+                if float(df['Low'].iloc[i]) < float(df['Low'].iloc[i-1]) and \
+                   float(df['Low'].iloc[i]) < float(df['Low'].iloc[i+1]):
+                    support_levels.append(float(df['Low'].iloc[i]))
+            
+            # Get nearest resistance above current price
+            nearest_resistance = current_price
+            for res in sorted(resistance_levels):
+                if res > current_price:
+                    nearest_resistance = res
+                    break
+            if nearest_resistance == current_price:
+                nearest_resistance = float(recent_highs.max())
+            
+            # Get nearest support below current price
+            nearest_support = current_price
+            for sup in sorted(support_levels, reverse=True):
+                if sup < current_price:
+                    nearest_support = sup
+                    break
+            if nearest_support == current_price:
+                nearest_support = float(recent_lows.min())
+            
+            # 5. Distance calculations
+            dist_to_resistance = ((nearest_resistance - current_price) / current_price) * 100
+            dist_to_support = ((current_price - nearest_support) / current_price) * 100
+            
+            # Last 3 closes with dates
+            last_3_data = []
+            for i in range(3):
+                idx = len(df) - 3 + i
+                if idx >= 0:
+                    last_3_data.append({
+                        'date': df.index[idx].strftime('%Y-%m-%d'),
+                        'close': round(float(df['Close'].iloc[idx]), 2),
+                        'change': round(float(df['Close'].iloc[idx]) - float(df['Open'].iloc[idx]), 2) if pd.notna(df['Open'].iloc[idx]) else 0.0
+                    })
             
             highlights = {
-                'three_days_increasing': three_days_increasing,
-                'macd_rising': macd_rising,
-                'gap_event': gap_found,
-                'recent_resistance': round(float(resistance), 2),
-                'recent_support': round(float(support), 2),
-                'current_price': round(float(df['Close'].iloc[-1]), 2),
-                'last_3_closes': [round(float(c), 2) for c in df['Close'].tail(3).values],
+                'current_price': round(current_price, 2),
+                'consecutive_days': {
+                    'increasing_3': three_days_increasing,
+                    'trend': 'Uptrend' if three_days_increasing else 'No Uptrend'
+                },
+                'macd': macd_analysis,
+                'gap': gap_analysis,
+                'resistance_support': {
+                    'nearest_resistance': round(nearest_resistance, 2),
+                    'nearest_support': round(nearest_support, 2),
+                    'all_resistances': [round(r, 2) for r in sorted(set(resistance_levels))[-5:]],
+                    'all_supports': [round(s, 2) for s in sorted(set(support_levels))[:5]]
+                },
+                'distances': {
+                    'to_resistance_pct': round(dist_to_resistance, 2),
+                    'to_support_pct': round(dist_to_support, 2),
+                    'to_resistance_amount': round(nearest_resistance - current_price, 2),
+                    'to_support_amount': round(current_price - nearest_support, 2)
+                },
+                'last_3_days': last_3_data,
+                'overall_status': self._get_overall_status(three_days_increasing, macd_analysis, gap_analysis)
             }
             
             return highlights
         except Exception as e:
             logger.error(f"Error getting chart highlights for {ticker}: {e}")
             return None
+    
+    def _get_overall_status(self, three_days, macd, gap):
+        """Calculate overall market status."""
+        score = 0
+        reasons = []
+        
+        if three_days:
+            score += 2
+            reasons.append('3-Day Uptrend')
+        
+        if macd.get('rising'):
+            score += 2
+            reasons.append('MACD Rising')
+        elif macd.get('falling'):
+            score -= 1
+        
+        if gap.get('type') == 'gap_up':
+            score += 2
+            reasons.append('Gap Up')
+        elif gap.get('type') == 'gap_down':
+            score -= 2
+            reasons.append('Gap Down')
+        
+        if score >= 4:
+            return {'status': 'Strong Bullish', 'score': int(score), 'reasons': reasons}
+        elif score >= 2:
+            return {'status': 'Bullish', 'score': int(score), 'reasons': reasons}
+        elif score <= -2:
+            return {'status': 'Bearish', 'score': int(score), 'reasons': reasons}
+        else:
+            return {'status': 'Neutral', 'score': int(score), 'reasons': reasons}
     
     def get_technicals_analysis(self, ticker: str) -> Optional[Dict]:
         """Get technical analysis with moving averages and support/resistance."""
