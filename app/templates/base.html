@@ -43,4 +43,14 @@
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
+<!-- HTML Dialog Popup Modal -->
+<dialog id="aiModal" class="market-modal">
+    <div class="modal-header">
+        <h3 id="modalTitle">📈 Swing Trade Analysis</h3>
+        <button onclick="document.getElementById('aiModal').close()" class="close-btn">&times;</button>
+    </div>
+    <div id="modalBody" class="modal-body">
+        <!-- Javascript will inject data dynamically here -->
+    </div>
+</dialog>
 </html>

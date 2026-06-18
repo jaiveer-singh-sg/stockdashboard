@@ -20,6 +20,16 @@
             <button id="search-button" class="btn btn-primary">Analyze</button>
 			<button  id="AI-button" class="btn btn-primary" onclick="runAIAnalysis()"> Swing Trade Insights </button>
 			<div id="aiResult"></div>
+			<!-- 🆕 ADD THIS DIRECTLY BELOW: The popup layout container -->
+			<dialog id="aiModal" class="market-modal">
+				<div class="modal-header">
+					<h3 id="modalTitle">📈 Swing Trade Analysis</h3>
+					<button onclick="document.getElementById('aiModal').close()" class="close-btn">&times;</button>
+				</div>
+				<div id="modalBody" class="modal-body">
+					<!-- Javascript automatically injects parsed trading cards here -->
+				</div>
+			</dialog>			
         </div>
         <p class="help-text">Search for any NASDAQ ticker to get started</p>
     </div>
