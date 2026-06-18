@@ -18,6 +18,8 @@
             >
             <div id="ticker-suggestions" class="ticker-suggestions"></div>
             <button id="search-button" class="btn btn-primary">Analyze</button>
+			<button  id="AI-button" class="btn btn-primary" onclick="runAIAnalysis()"> Swing Trade Insights </button>
+			<div id="aiResult"></div>
         </div>
         <p class="help-text">Search for any NASDAQ ticker to get started</p>
     </div>
@@ -60,7 +62,8 @@
         <a href="{{ url_for('main.catalysts') }}" class="btn btn-secondary">View</a>
     </div>
 </div>
-
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai-insights.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
 {% endblock %}
 
