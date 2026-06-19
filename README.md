@@ -103,6 +103,20 @@ A comprehensive web-based stock analysis dashboard for NASDAQ stocks with real-t
 
 ```
 StocksDashboard/
+├── ai-agent
+│   │
+│   ├── app.py                <-- FastAPI endpoint
+│   │
+│   ├── ollama_client.py      <-- Hermes/Ollama connector
+│   │
+│   ├── market_context.py     <-- collect indicators
+│   │
+│   ├── prompts.py            <-- AI prompts
+│   │
+│   ├── requirements.txt      <--  data libraries dependencies
+│   │
+│   └── agents
+│       └── swing_agent.py    <-- Market data, AI LLM Prompt
 ├── app/
 │   ├── __init__.py                 # Flask app factory
 │   ├── routes.py                   # Route handlers
@@ -113,7 +127,7 @@ StocksDashboard/
 │   │   └── nasdaq_tickers.py       # NASDAQ ticker manager
 │   ├── services/
 │   │   ├── __init__.py
-│   │   └── analysis_service.py     # Analysis logic
+│   │   └── analysis_service.py     # Market data aanalysis logic 
 │   ├── templates/
 │   │   ├── base.html               # Base template
 │   │   ├── index.html              # Home page
@@ -186,6 +200,13 @@ The application validates data by:
 - Checking NASDAQ ticker validity
 - Comparing technical indicators across multiple timeframes
 
+## AI Agent Insights empowered by LLM 
+
+The application uses Hermes3 model end point (which can be run locally or in cloud ):
+- Entry, Target, Stop Loss price points & Risk Reward Ratio
+- Bullish scenario and explanation
+- Bearish scenario and explanation
+
 ## Future Enhancements
 
 - [ ] Real-time WebSocket updates
@@ -196,6 +217,18 @@ The application validates data by:
 - [ ] Custom alerts
 - [ ] Export to PDF/CSV
 - [ ] Mobile app
+
+## Key Signals for Swing Insights
+
+- [ ] MACD
+- [ ] RSI
+- [ ] VIX
+- [ ] PCR
+- [ ] ATH
+- [ ] 52WK high/low
+- [ ] YTD
+- [ ] volume
+- [ ] trend
 
 ## Troubleshooting
 

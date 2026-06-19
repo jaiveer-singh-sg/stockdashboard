@@ -599,3 +599,30 @@ a:hover {
 }
 .final-view-box h4 { margin-top: 0; margin-bottom: 6px; }
 .final-view-box p { margin: 0; color: #495057; }
+/* style for new 3 sections */
+.tradingview-sections {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.trading-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.trading-card h2 {
+    margin-bottom: 8px;
+}
+
+.trading-card p {
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.trading-card iframe {
+    border-radius: 8px;
+}
