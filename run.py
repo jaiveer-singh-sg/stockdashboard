@@ -42,11 +42,13 @@ if __name__ == '__main__':
     print(f"Debug mode: {debug}")
     print(f"Log file: {log_file}")
     print(f"Open http://localhost:{port} in your browser")
+    print("Playwright Protection: Auto-reloader is DISABLED.")    
     
     app.run(
         host=host,
         port=port,
         debug=debug,
-        use_reloader=debug,
-        threaded=True
+        threaded=True, 
+        use_reloader=False  # <-- This stops Flask from restarting when Playwright runs
+ #       use_reloader=debug,
     )

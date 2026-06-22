@@ -90,8 +90,16 @@ A comprehensive web-based stock analysis dashboard for NASDAQ stocks with real-t
    ```
 
 5. **Run the application**
-   ```bash
-   python run.py
+   ```
+   Run AI Service - 
+   1. Verify Ollama with Hermes3 model is running at http://ollama-remotehost:11434
+   2. Now from StocksAgentView\ai-agent - Run AI Agent Service
+      uvicorn app:app --reload --port 8000 
+ 
+	  verify URL http://localhost:8000 it is running ,You will see  {"status":"AI Trading Agent Running"} 
+	  
+   3. from  bash terminal [Stockdashboard]
+	python run.py
    ```
 
 6. **Open in browser**
@@ -103,7 +111,7 @@ A comprehensive web-based stock analysis dashboard for NASDAQ stocks with real-t
 
 ```
 StocksDashboard/
-├── ai-agent
+├── ai_agent
 │   │
 │   ├── app.py                <-- FastAPI endpoint
 │   │

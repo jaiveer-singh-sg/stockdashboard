@@ -6,6 +6,9 @@ from app.data_sources.nasdaq_tickers import NasdaqTickerManager
 from app.services.analysis_service import AnalysisService
 from datetime import datetime
 import logging
+from flask import jsonify
+# Import pandas for type checking
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -320,5 +323,13 @@ def health():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
 
-# Import pandas for type checking
-import pandas as pd
+# @main.route("/api/market-context")
+
+@main_bp.route("/api/market-context")
+def market_context():
+
+    from ai_agent.market_context import get_market_context
+
+    return jsonify(
+        get_market_context()
+    )

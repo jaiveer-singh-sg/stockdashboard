@@ -134,3 +134,39 @@ async function runAIAnalysis() {
         aiButton.disabled = false;
     }
 }
+
+async function loadMarketContext(){
+
+    const response =
+    await fetch("/api/market-context");
+
+
+    const data =
+    await response.json();
+
+
+    document.getElementById(
+    "vix-value"
+    ).innerHTML =
+    data.vix;
+
+    document.getElementById(
+    "pcr-value"
+    ).innerHTML =
+    data.pcr;
+
+
+    document.getElementById(
+    "macd-value"
+    ).innerHTML =
+    data.macd;
+
+
+    document.getElementById(
+    "trend-value"
+    ).innerHTML =
+    data.trend;
+
+}
+
+loadMarketContext();

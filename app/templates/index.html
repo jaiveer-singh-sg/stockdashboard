@@ -18,7 +18,7 @@
             >
             <div id="ticker-suggestions" class="ticker-suggestions"></div>
             <button id="search-button" class="btn btn-primary">Analyze</button>
-			<button  id="AI-button" class="btn btn-primary" onclick="runAIAnalysis()"> Swing Trade Insights </button>
+			<button  id="AI-button" class="btn btn-primary" onclick="runAIAnalysis()"> Show Swing Insights by AI Agent</button>
 			<div id="aiResult"></div>
 			<!-- 🆕 ADD THIS DIRECTLY BELOW: The popup layout container -->
 			<dialog id="aiModal" class="market-modal">
@@ -72,21 +72,32 @@
         <a href="{{ url_for('main.catalysts') }}" class="btn btn-secondary">View</a>
     </div>
 </div>
-<!-- new 3 sections -->
+<!-- new sections starts here -->
 <!-- TradingView Market Sections -->
-<div class="tradingview-sections">
+<!-- Market Intelligence Dashboard -->
 
-    <div class="trading-card">
-        <h2>📈 Nasdaq Market</h2>
-        <p>TradingView Nasdaq Market Chart</p>
+<div class="market-intelligence">
+    <h2>📊 Market Intelligence Center</h2>
+    <p>TradingView Market View + Watch Lists + Swing Opportunities</p>
 
-        <a href="https://www.tradingview.com/x/FmvqCogt/"
-           target="_blank"
-           class="btn btn-primary">
-           Open Nasdaq Market
-        </a>
+<!-- new TV Widgets sections completed- Nasdaq SPY SPDR S&P 500 ETF Trust (SPY) is a highly popular exchange-traded fund (ETF) that tracks the performance of the S&P 500 index, a broad market index that represents the 500 largest -->
+	<div class="trading-card">
+
+	<script src="https://s3.tradingview.com/tv.js"></script>
+
+	<script>
+	new TradingView.widget({
+		"width": "100%",
+		"height": 600,
+		"symbol": "AMEX:SPY",
+		"interval": "D",
+		"timezone": "Asia/Singapore",
+		"theme": "light",
+		"style": "1",
+		"container_id": "tradingview_chart"
+	});
+	</script>
     </div>
-
 
     <div class="trading-card">
         <h2>👀 Sample Watch List</h2>
@@ -110,9 +121,62 @@
            Open Swing Screener
         </a>
     </div>
+	        <!-- AI Insights 
+        <div class="market-card">
+            <h3>🤖 AI Swing Insights</h3>
+            <p> Ollama powered market interpretation </p>
 
+            <button onclick="runAIAnalysis()" class="btn btn-primary"> Run AI Analysis </button>
+			<div id="aiResult"></div>
+        </div> -->
+    <!-- Market Indicators -->
+    <div class="indicator-panel">
+
+        <h3>📌 Market Indicators</h3>
+
+
+        <div class="indicator-grid">
+
+
+            <div>
+                <b>VIX</b>
+                <span id="vix-value">
+                    Loading...
+                </span>
+            </div>
+
+
+            <div>
+                <b>Put/Call Ratio</b>
+                <span id="pcr-value">
+                    Loading...
+                </span>
+            </div>
+
+
+            <div>
+                <b>MACD Trend</b>
+                <span id="macd-value">
+                    Loading...
+                </span>
+            </div>
+
+
+            <div>
+                <b>Market Trend</b>
+                <span id="trend-value">
+                    Loading...
+                </span>
+            </div>
+
+
+        </div>
+
+    </div>
 </div>
-<!-- new 3 sections completed -->
+</div>
+
+<!-- new sections completed -->
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ai-insights.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ticker-search.js') }}"></script>
