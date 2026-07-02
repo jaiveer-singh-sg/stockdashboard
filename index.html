@@ -1,0 +1,103 @@
+<html><body><h1>Top 10 Swing Watchlist - July</h1>
+
+<div class="top-section">
+
+<!-- The script will insert the dynamic links inside this tag -->
+        <ul id="dynamic-links-container">
+            <li><a href="./reports/AMD.html">AMD.html</a></li>
+            <li><a href="./reports/DELL.html">DELL.html</a></li>
+            <li><a href="./reports/LRCX.html">LRCX.html</a></li>
+            <li><a href="./reports/MRVL.html">MRVL.html</a></li>
+            <li><a href="./reports/MU.html">MU.html</a></li>
+            <li><a href="./reports/NBIS.html">NBIS.html</a></li>
+            <li><a href="./reports/SE.html">SE.html</a></li>
+            <li><a href="./reports/SNOW.html">SNOW.html</a></li>
+            <li><a href="./reports/TER.html">TER.html</a></li>
+            <li><a href="./reports/TSM.html">TSM.html</a></li>
+            <li><a href="./reports/se.html">se.html</a></li>
+        </ul>
+
+<div id="links-container">
+<!-- existing links turned into buttons (preserved hrefs) -->
+<ul>
+
+</ul> 
+</div>
+        
+<div id="ticker-control">
+<!-- 1. Keep your original input box intact -->
+<input id="symbol-input" placeholder="e.g., NASDAQ:AAPL" value="NASDAQ:AAPL" />
+<!-- 2. Add the dropdown right next to it -->
+    <label for="ticker-select">Or choose from discovered list: </label>
+    <select id="ticker-select" onchange="syncDropdownToInput(this.value)">
+        <option value="">-- Quick Select --</option>
+            <option value="NASDAQ:AMD">AMD</option>
+            <option value="NASDAQ:DELL">DELL</option>
+            <option value="NASDAQ:LRCX">LRCX</option>
+            <option value="NASDAQ:MRVL">MRVL</option>
+            <option value="NASDAQ:MU">MU</option>
+            <option value="NASDAQ:NBIS">NBIS</option>
+            <option value="NASDAQ:SE">SE</option>
+            <option value="NASDAQ:SNOW">SNOW</option>
+            <option value="NASDAQ:TER">TER</option>
+            <option value="NASDAQ:TSM">TSM</option>
+            <option value="NASDAQ:SE">SE</option>
+    </select>
+  <!-- Your existing "Load Chart" button if you have one -->
+<button id="show-chart-btn">Show chart</button>
+<br>
+<br>
+</div>
+</div>
+<div class="chart-section">
+<div id="tradingview-widget"></div>
+</div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+
+
+<script>
+function createWidget(symbol) {
+document.getElementById('tradingview-widget').innerHTML = '';
+new TradingView.widget({
+width: '100%',
+height: 600,
+symbol: symbol,
+interval: 'D',
+timezone: 'Etc/UTC',
+theme: 'light',
+style: '1',
+container_id: 'tradingview-widget',
+allow_symbol_change: true,
+enable_publishing: false
+});
+}
+
+document.getElementById('show-chart-btn').addEventListener('click', function(){
+const sym = document.getElementById('symbol-input').value.trim() || 'NASDAQ:AAPL';
+createWidget(sym);
+});
+
+// Optionally create initial widget on load:
+createWidget(document.getElementById('symbol-input').value);
+
+function syncDropdownToInput(symbolText) {
+    // 1. Safety check to make sure a value exists
+    if (!symbolText) return;
+    
+    // 2. Safely locate your input box element
+    const inputField = document.getElementById('symbol-input');
+    
+    if (inputField) {
+        // Inject the pure "NASDAQ:AMD" string directly into the text box
+        inputField.value = symbolText; 
+        
+        // 3. Safely pass it down to refresh your TradingView chart widget
+        if (typeof createWidget === 'function') {
+            createWidget(symbolText);
+        }
+    }
+}
+       
+</script>
+</body></html>
